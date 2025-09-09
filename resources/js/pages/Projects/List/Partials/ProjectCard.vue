@@ -1,0 +1,288 @@
+<template>
+    <div
+        class="group cursor-pointer transition-all duration-200 hover:bg-muted/40 hover:shadow-sm relative min-h-[140px]"
+        @click="handleProjectClick"
+    >
+        <!-- Trait fin gauche élégant -->
+        <div class="absolute left-0 top-0 h-full w-px bg-transparent group-hover:bg-border transition-all duration-200"></div>
+
+        <div class="flex flex-col gap-4 p-6 py-8 lg:flex-row lg:items-center lg:justify-between relative">
+            <!-- Contenu principal -->
+            <div class="flex-1 space-y-2.5">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div class="space-y-1.5">
+                        <!-- Nom du projet -->
+                        <div class="flex items-center gap-4">
+                            <h3 class="text-base font-medium transition-colors group-hover:text-emerald-700 dark:group-hover:text-emerald-400 text-foreground">
+                                {{ project.name }}
+                            </h3>
+                            <!-- Badge de statut -->
+                            <span
+                                class="inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset"
+                                :class="getStatusClasses(project.status)"
+                            >
+                                {{ getStatusLabel(project.status) }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Informations secondaires -->
+                <div class="flex flex-col gap-1.5 text-sm text-muted-foreground sm:flex-row sm:items-center sm:gap-5">
+                    <span v-if="project.client?.name" class="flex items-center gap-1.5">
+                        <Icon name="user" class="h-3.5 w-3.5 text-muted-foreground/70" />
+                        {{ project.client.name }}
+                    </span>
+                    <span v-if="project.description" class="flex items-center gap-1.5">
+                        <Icon name="file-text" class="h-3.5 w-3.5 text-muted-foreground/70" />
+                        {{ truncateText(project.description, 50) }}
+                    </span>
+                </div>
+
+                <!-- Métriques business -->
+                <div class="flex flex-wrap items-center gap-3">
+                    <!-- Date de début -->
+                    <span
+                        v-if="project.start_date"
+                        class="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-400"
+                    >
+                        <Icon name="calendar" class="h-3 w-3" />
+                        {{ formatDate(project.start_date) }}
+                    </span>
+
+                    <!-- Budget -->
+                    <span
+                        v-if="project.budget"
+                        class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400"
+                    >
+                        <Icon name="banknote" class="h-3 w-3" />
+                        {{ formatCurrencyCompact(project.budget) }}
+                    </span>
+
+                    <!-- Montant facturé -->
+                    <span
+                        v-if="project.total_billed > 0"
+                        class="inline-flex items-center gap-1.5 text-xs font-medium text-purple-700 dark:text-purple-400"
+                    >
+                        <Icon name="receipt" class="h-3 w-3" />
+                        {{ formatCurrencyCompact(project.total_billed) }} facturé
+                    </span>
+
+                    <!-- Nombre d'événements -->
+                    <span
+                        v-if="project.events_count > 0"
+                        class="inline-flex items-center gap-1.5 text-xs font-medium text-foreground"
+                    >
+                        <Icon name="activity" class="h-3 w-3" />
+                        {{ project.events_count }} événement{{ project.events_count > 1 ? 's' : '' }}
+                    </span>
+                </div>
+
+                <!-- Barre de progression du budget -->
+                <div v-if="project.budget && project.budget > 0" class="mt-2 mb-3 max-w-3xl">
+                    <div class="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                        <span class="truncate">
+                            {{ Math.round(project.budget_progress) }}% du budget utilisé
+                        </span>
+                        <span v-if="project.budget_exceeded" class="text-red-600 font-medium whitespace-nowrap ml-2">
+                            Dépassé
+                        </span>
+                    </div>
+                    <div class="h-1 bg-muted rounded-full overflow-hidden">
+                        <div
+                            class="h-full transition-all duration-300"
+                            :class="{
+                                'bg-gradient-to-r from-emerald-500 to-emerald-600': project.budget_progress < 70,
+                                'bg-gradient-to-r from-orange-500 to-orange-600': project.budget_progress >= 70 && project.budget_progress < 100,
+                                'bg-gradient-to-r from-red-500 to-red-600': project.budget_progress >= 100
+                            }"
+                            :style="{ width: Math.min(project.budget_progress, 100) + '%' }"
+                        ></div>
+                    </div>
+                </div>
+
+                <!-- Indicateurs d'alerte -->
+                <div v-if="hasAnyAlerts(project)" class="flex flex-wrap items-center gap-2 mt-2">
+                    <!-- Projet en retard -->
+                    <span
+                        v-if="isProjectOverdue(project)"
+                        class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-destructive bg-destructive/10 rounded-md ring-1 ring-destructive/20"
+                    >
+                        <Icon name="clock" class="h-3 w-3" />
+                        Projet en retard
+                    </span>
+
+                    <!-- Événements en retard -->
+                    <span
+                        v-if="project.has_overdue_events"
+                        class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 rounded-md ring-1 ring-amber-200 dark:ring-amber-800/30"
+                    >
+                        <Icon name="alert-triangle" class="h-3 w-3" />
+                        Tâches en retard
+                    </span>
+
+                    <!-- Retards de paiement -->
+                    <span
+                        v-if="project.has_payment_overdue"
+                        class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-destructive bg-destructive/10 rounded-md ring-1 ring-destructive/20"
+                    >
+                        <Icon name="credit-card" class="h-3 w-3" />
+                        Paiements en retard
+                    </span>
+                </div>
+            </div>
+
+            <!-- Menu contextuel discret -->
+            <div class="transition-opacity absolute right-3 top-3">
+                <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                        <button
+                            class="inline-flex items-center justify-center p-1 rounded-md text-slate-600 bg-slate-200 hover:bg-slate-300 transition-colors cursor-pointer"
+                            @click.stop
+                            title="Actions"
+                        >
+                            <Icon name="more-horizontal" class="h-3.5 w-3.5 md:h-5 md:w-5" />
+                        </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" class="w-max">
+                        <DropdownMenuItem @click.stop="handleView">
+                            <Icon name="external-link" class="mr-2 h-3.5 w-3.5" />
+                            Voir le projet
+                        </DropdownMenuItem>
+                        <DropdownMenuItem @click.stop="handleEdit">
+                            <Icon name="edit" class="mr-2 h-3.5 w-3.5" />
+                            Modifier
+                        </DropdownMenuItem>
+                        <DropdownMenuItem @click.stop="handleAddEvent" class="text-green-600 dark:text-green-400 focus:text-green-600 dark:focus:text-green-400 focus:bg-green-50 dark:focus:bg-green-950/20">
+                            <Icon name="plus-circle" class="mr-2 h-3.5 w-3.5 text-green-600" />
+                            Ajouter un événement
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                            class="text-destructive focus:text-destructive focus:bg-destructive/10"
+                            @click.stop="handleDelete"
+                        >
+                            <Icon name="trash-2" class="mr-2 h-3.5 w-3.5" />
+                            Supprimer
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script setup lang="ts">
+// import { router } from '@inertiajs/vue3' // Réservé pour futures navigations
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import Icon from '@/components/Icon.vue'
+// import { route } from 'ziggy-js' // Réservé pour futures routes
+import type { ProjectDTO } from '@/types/models'
+
+/**
+ * Composant de carte projet réutilisable
+ * Responsabilités :
+ * - Affichage des informations du projet
+ * - Interactions de navigation et actions
+ * - Menu contextuel avec actions
+ */
+
+interface Props {
+    project: ProjectDTO
+}
+
+const props = defineProps<Props>()
+
+const emit = defineEmits<{
+    'project-click': [project: ProjectDTO]
+    'view': [project: ProjectDTO]
+    'edit': [project: ProjectDTO]
+    'add-event': [project: ProjectDTO]
+    'delete': [projectId: number]
+}>()
+
+// Gestion du clic sur le projet
+const handleProjectClick = () => {
+    emit('project-click', props.project)
+}
+
+// Actions du menu
+const handleView = () => {
+    emit('view', props.project)
+}
+
+const handleEdit = () => {
+    emit('edit', props.project)
+}
+
+const handleAddEvent = () => {
+    emit('add-event', props.project)
+}
+
+const handleDelete = () => {
+    emit('delete', props.project.id)
+}
+
+// Utilitaires de formatage
+const truncateText = (text: string, maxLength: number): string => {
+    return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text
+}
+
+const formatDate = (date: string): string => {
+    return new Intl.DateTimeFormat('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    }).format(new Date(date))
+}
+
+const formatCurrencyCompact = (amount: number): string => {
+    return new Intl.NumberFormat('fr-FR', {
+        style: 'currency',
+        currency: 'EUR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+        notation: amount >= 1000 ? 'compact' : 'standard'
+    }).format(amount)
+}
+
+// Logique des statuts
+const getStatusLabel = (status: string): string => {
+    const labels: Record<string, string> = {
+        'active': 'Actif',
+        'completed': 'Terminé',
+        'on_hold': 'En pause',
+        'cancelled': 'Annulé'
+    }
+    return labels[status] || status
+}
+
+const getStatusClasses = (status: string): string => {
+    const classes: Record<string, string> = {
+        'active': 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 ring-emerald-600/20',
+        'completed': 'bg-primary/10 text-primary ring-primary/20',
+        'on_hold': 'bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 ring-amber-600/20',
+        'cancelled': 'bg-destructive/10 text-destructive ring-destructive/20'
+    }
+    return classes[status] || 'bg-muted/50 text-foreground ring-gray-600/20'
+}
+
+const isProjectOverdue = (project: ProjectDTO): boolean => {
+    if (!project.end_date) return false
+    const endDate = new Date(project.end_date)
+    const now = new Date()
+    return endDate < now && project.status === 'active'
+}
+
+const hasAnyAlerts = (project: ProjectDTO): boolean => {
+    return isProjectOverdue(project) ||
+           project.has_overdue_events ||
+           project.has_payment_overdue
+}
+</script>
