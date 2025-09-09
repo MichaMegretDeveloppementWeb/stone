@@ -14,7 +14,7 @@
     "src": "resources/images/stone_logo.webp"
   },
   "resources/js/app.ts": {
-    "file": "assets/app-DF-z-wMd.js",
+    "file": "assets/app-CeFBPA5i.js",
     "name": "app",
     "src": "resources/js/app.ts",
     "isEntry": true,
@@ -22,7 +22,7 @@
       "node_modules/chart.js/dist/chart.js"
     ],
     "css": [
-      "assets/app-G8Y5JuVX.css"
+      "assets/app-OCkjMY3E.css"
     ],
     "assets": [
       "assets/stone_logo-DtC7vfd2.webp",

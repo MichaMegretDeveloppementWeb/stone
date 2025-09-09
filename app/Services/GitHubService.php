@@ -25,6 +25,7 @@ class GitHubService
      */
     public function getRecentDiscussions(int $limit = 10): array
     {
+
         if (empty($this->repository)) {
             return [];
         }
@@ -34,6 +35,7 @@ class GitHubService
         return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($limit) {
             try {
                 $response = Http::timeout(10)
+                    ->withOptions(['verify' => app()->isProduction()]) // SSL vérification en production uniquement
                     ->get("{$this->baseUrl}/repos/{$this->repository}/discussions", [
                         'per_page' => $limit,
                         'sort' => 'updated',
@@ -73,6 +75,8 @@ class GitHubService
                 return [];
             }
         });
+
+
     }
 
     /**

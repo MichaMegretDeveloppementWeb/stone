@@ -72,7 +72,7 @@
         <div class="bg-white rounded-2xl shadow-lg p-8 mb-16">
             <h3 class="text-xl font-semibold text-gray-900 mb-6 text-center">Suivez-nous sur les réseaux sociaux</h3>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <a href="{{ config('social.twitter') }}" target="_blank" class="flex flex-col items-center p-4 rounded-xl hover:bg-gray-50 transition-colors group">
+                <a href="{{ config('social.x') }}" target="_blank" class="flex flex-col items-center p-4 rounded-xl hover:bg-gray-50 transition-colors group">
                     <div class="w-10 h-10 bg-blue-400 rounded-lg flex items-center justify-center mb-2 group-hover:bg-blue-300 transition-colors">
                         <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
@@ -289,7 +289,7 @@ async function loadGitHubDiscussions() {
     try {
         const response = await fetch('{{ route('api.github.discussions') }}');
         const data = await response.json();
-
+        console.log(data);
         if (!response.ok) {
             throw new Error('Failed to fetch discussions');
         }
